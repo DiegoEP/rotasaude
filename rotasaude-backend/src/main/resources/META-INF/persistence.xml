@@ -1,0 +1,45 @@
+
+<persistence xmlns="http://java.sun.com/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd"
+             version="2.0">
+    
+    <persistence-unit transaction-type="RESOURCE_LOCAL" name="rotasaude-pu">
+        <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
+        <jar-file>target/classes</jar-file>
+        <exclude-unlisted-classes>false</exclude-unlisted-classes>
+      
+        <!-- 
+        ALL: force caching for all entities
+        NONE: disable caching for all entities (useful to take second-level cache out of the equation)
+        ENABLE_SELECTIVE (default): enable caching when explicitly marked (@Cacheable)
+        DISABLE_SELECTIVE: enable caching unless explicitly marked as @Cacheable(false) (not recommended)
+        -->
+        <!--shared-cache-mode>ENABLE_SELECTIVE</shared-cache-mode -->
+      
+        <!--
+        AUTO: if Bean Validation is present in the classpath, CALLBACK and DDL are activated.
+        CALLBACK: entities are validated on creation, update and deletion. If no Bean Validation provider is present, an exception is raised at initialization time.
+        DDL: (not standard, see below) database schemas are entities are validated on creation, update and deletion. If no Bean Validation provider is present, an exception is raised at initialization time.
+        NONE: Bean Validation is not used at all
+        -->
+        <validation-mode>NONE</validation-mode>
+      
+        <properties>
+            <property name="hibernate.transaction.jta.platform" value="org.hibernate.service.jta.platform.internal.SunOneJtaPlatform" />
+            <property name="hibernate.hbm2ddl.auto" value="update"/>
+            <property name="hibernate.archive.autodetection" value="class"/>
+            <property name="hibernate.show_sql" value="true" />
+            <property name="hibernate.format_sql" value="true"/>
+           
+            <property name="hibernate.dialect" value="org.hibernate.dialect.PostgreSQLDialect"/>
+            <property name="hibernate.connection.driver_class" value="org.postgresql.Driver"/>  
+            <property name="hibernate.connection.url" value="jdbc:postgresql://localhost:5432/rotasaude"/> 
+            <property name="hibernate.connection.user" value="postgres"/> 
+            <property name="hibernate.connection.password" value="adminadmin"/> 
+        </properties>
+      
+    </persistence-unit>
+
+    
+</persistence>

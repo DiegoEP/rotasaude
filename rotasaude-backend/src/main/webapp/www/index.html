@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+     KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height, target-densitydpi=device-dpi" />
+
+        <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5.1/leaflet.css" />
+         <script src="http://cdn.leafletjs.com/leaflet-0.5.1/leaflet.js"></script>
+        <!-- <script src="js/leaflet.js"></script>-->
+        <script src="js/leaflet-routing-machine.js"></script>
+        <link rel="stylesheet" type="text/css" href="js/leaflet-routing-machine.css" />
+        <link rel="stylesheet" type="text/css" href="css/index.css" />
+        <script type="text/javascript" src="cordova-2.7.0.js"></script>
+        <!-- <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js"></script>-->
+        <script type="text/javascript" src="js/jquery.min.js"></script>
+        <title>Rota da Saúde</title>
+        <script type="text/javascript">
+         document.addEventListener("deviceready", onDeviceReady, false);
+         function onDeviceReady() {
+            var networkState = navigator.connection.type;
+            if(networkState == Connection.NONE )
+                alert("No internet");
+         }
+        </script>
+    </head>
+    <body>
+        <div id="map"></div>
+        <script>
+        
+        var caminhoFunction;
+        
+        var routing;
+
+        $(document).ready( function () {    
+        	
+            var fillCity = function(lat, long) {
+
+                $.ajax({
+                type: 'GET',
+                dataType: "json",
+                url: "http://maps.googleapis.com/maps/api/geocode/json?latlng="+lat+","+long+"&sensor=false",
+                data: {},
+                success: function(data) {
+                    $('#city').html(data);
+                    $.each( data['results'],function(i, val) {
+                        $.each( val['address_components'],function(i, val) {
+                            if (val['types'] == "locality,political") {
+                                if (val['long_name']!="") {
+                                    $('#city').html(val['long_name']);
+                                }
+                                else {
+                                    $('#city').html("unknown");
+                                }
+                                console.log(i+", " + val['long_name']);
+                                console.log(i+", " + val['types']);
+                            }
+                        });
+                    });
+                    console.log('Success ');
+                },
+                error: function () { console.log('error'); } 
+            });
+
+            };
+            
+        var homeIcon = L.icon({
+            iconUrl: 'img/home_icon.png',
+            iconSize:     [38, 38], // size of the icon
+            iconAnchor:   [22, 38], // point of the icon which will correspond to marker's location
+            popupAnchor:  [-3, -38] // point from which the popup should open relative to the iconAnchor
+        });
+        
+        var hospitalIcon = L.icon({
+            iconUrl: 'img/hospital_icon.png',
+            iconSize:     [28, 48], // size of the icon
+            iconAnchor:   [22, 48], // point of the icon which will correspond to marker's location
+            popupAnchor:  [-3, -38] // point from which the popup should open relative to the iconAnchor
+        });
+
+        var map = L.map('map');
+
+        var layer = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+            maxZoom: 20
+          }).addTo(map);
+        
+
+        function onLocationError(e) {
+            alert(e.message);
+        }
+
+        var markers = new Array();
+        
+        function clearMarkers() {
+        	for(i=0;i<markers.length;i++) {
+        	    map.removeLayer(markers[i]);
+        	}  
+        }
+        
+        function clearPopups() {
+        	for(i=0;i<markers.length;i++) {
+        	    markers[i].closePopup();
+        	}  
+        }
+        
+        $("#especialidades").ready(function(){
+
+        	 $.ajax({
+                 type: 'GET',
+                 dataType: "json",
+                 url: "http://localhost:8080/rest/services/especialidades",
+                 data: {},
+                 success: function(data) {
+                	 console.log("data="+data);
+                     $.each( data,function(i, val) {
+                    	 $("#especialidades").append(new Option(val['nome'], val['id']));
+                     });
+                 },
+                 error: function () { console.log('error'); } 
+             });
+        	
+        });
+        
+        $("#especialidades").change(function() {
+        	
+        	clearMarkers();
+
+        	var especialidade = $("#especialidades").val();
+
+        	 $.ajax({
+                 type: 'GET',
+                 dataType: "json",
+                 url: "http://localhost:8080/rest/services/unidadesSaude?especialidade="+especialidade,
+                 data: {},
+                 success: function(data) {
+                	 console.log("data="+data);
+                     $.each( data,function(i, val) {
+                    	 var latitude = val['latitude'].replace(",",".");
+                    	 var longitude = val['longitude'].replace(",",".");
+                    	 var pos = new L.LatLng(latitude, longitude);
+                         markers[i] = L.marker(pos, {icon: hospitalIcon}).addTo(map)
+                         .bindPopup("<h3>"+val['unidade']+"</h3><p><strong>Endereço:</strong> "+val['endereco']+" - "+val['bairro']+" </strong></p><p><strong>Telefone: </strong>"+val['fone']+"</p><p><strong>Tipo: </strong>"+val['tipo']+"</p><a href='javascript:void(0)' onclick='caminhoFunction("+val['latitude'].replace(",",".")+","+val['longitude'].replace(",",".")+")'>MOSTRAR ROTA</a>");
+                     });
+                 },
+                 error: function () { console.log('error'); } 
+             });
+            
+        });
+        
+        var latitude = 0;
+        var longitude = 0;
+
+        var onSuccess = function(position) {
+
+            /* comentado para simulação */
+            //latitude = position.coords.latitude;
+            //longitude = position.coords.longitude;
+            /* mapa do cin */
+            latitude = -8.055383;
+            longitude = -34.951298;
+
+           var pos = new L.LatLng(latitude, longitude);
+           //var radius = position.coords.accuracy / 2;
+
+           document.getElementById("lat").innerHTML = latitude;
+           document.getElementById("long").innerHTML = longitude;
+           fillCity(latitude, longitude);
+
+            L.marker(pos, {icon: homeIcon}).addTo(map)
+                .bindPopup("Você está aqui!").openPopup();
+            
+            //L.circle(pos, radius).addTo(map);
+            /* map.setView(pos); */
+          /*   map.setZoom(16); */
+          console.log("pos = "+pos);
+          map.setView(pos, 12);
+
+        };
+
+        // onError Callback receives a PositionError object
+        //
+        function onError(error) {        
+            map.on('locationfound', onLocationFound);
+            map.on('locationerror', onLocationError);
+        }
+        
+        
+        navigator.geolocation.getCurrentPosition(onSuccess, onError);
+        
+        caminhoFunction = function(lat, lon) {
+        	
+        	$("#especialidades").prop('disabled', true);
+        	
+        	clearPopups();
+        	
+        	routing = L.Routing.control({
+        	    waypoints: [
+					L.latLng(latitude, longitude),
+					L.latLng(lat, lon)
+        	    ]
+        	}).addTo(map);
+        }
+        
+        
+    });
+       
+    </script>
+    
+    <div id="tete" style="position: absolute; top: 0; width: 100%; z-index: 10000; background: #f1f1f1; height: 15%;">
+        <h1>Rota da Saúde</h1>
+        <hr />
+        Localização atual: 
+        <label id="lat">latitude</label>,
+        <label id="long">longitude</label>
+         / Cidade: <label id="city"></label>
+         / Especialidade que eu preciso: <select id="especialidades"><option>-Selecione uma especialidade-</option></select>
+         <button onclick="window.location.reload()">recomeçar</button>
+    </div>    
+        
+        
+    </body>
+</html>
